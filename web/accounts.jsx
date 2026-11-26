@@ -26,7 +26,7 @@ export function SetupAccess({ onUser, onBack }) {
         <label>Kurulum parolası<input name="password" type="password" autoComplete="current-password" minLength={8} maxLength={128} required/></label>
         {error && <p className="notice error" role="alert">{error}</p>}
         <button className="button primary" disabled={busy}>{busy ? 'Kontrol ediliyor…' : 'Devam et'}</button>
-      </form> : <p className="notice">Başlat menüsünde Tuş Atölyesi altındaki <strong>Kurulum parolası belirle</strong> aracını açın. Eski kurulum hesabınız varsa onunla oturum da açabilirsiniz.</p>)}
+      </form> : <p className="notice">Kurulum parolasını belirlemek için kurulum paketini yeniden çalıştırın. Eski kurulum hesabınız varsa onunla oturum da açabilirsiniz.</p>)}
     <button className="button quiet back-button" onClick={onBack}><Icon name="back" size={16}/> Oturum açmaya dön</button>
   </div>;
 }
@@ -69,7 +69,7 @@ export function DatabaseReset({ onReset, onSetup, onBack }) {
           onChange={event => setConfirmation(event.target.value)} autoComplete="off" required pattern="SIFIRLA"/></label>
         {error && <p className="notice error" role="alert">{error}</p>}
         <button className="button danger" disabled={busy || confirmation !== 'SIFIRLA'}>{busy ? 'Yedek alınıyor ve sıfırlanıyor…' : 'Veritabanını sıfırla'}</button>
-      </form> : <p className="notice">Devam etmek için Windows Başlat menüsünden <strong>Tuş Atölyesi → Kurulum parolası belirle</strong> aracını açın.</p>) :
+      </form> : <p className="notice">Kurulum parolasını belirlemek için kurulum paketini yeniden çalıştırın.</p>) :
       <p className="notice">Bu ekranı ana bilgisayarda <strong>localhost</strong> adresiyle açın.</p>)}
     <button type="button" className="button quiet maintenance-back" onClick={onBack} disabled={busy}>
       <Icon name="back" size={16}/> Oturum açmaya dön</button>

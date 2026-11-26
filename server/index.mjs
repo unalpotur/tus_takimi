@@ -56,12 +56,13 @@ async function configureAdmin() {
     input += chunk;
     if (input.length > 1024) throw new Error('Parola girdisi çok uzun.');
   }
-  const password = input.replace(/\r?\n$/, '');
+  const password = input.replace(/^\uFEFF/, '').replace(/\r?\n$/, '');
   if ((username !== setupUsername && !validUsername(username)) || !validName(fullName) || !validPassword(password)) {
     throw new Error('Kurulum için standart girdiden en az 8 karakterli geçerli bir parola gerekli.');
   }
   const encoded = await passwordHash(password);
   transaction(db, () => {
+    if (args.includes('--if-missing') && (hasTeacher.get() || hasSetup.get())) return;
     if (hasTeacher.get()) throw new Error('İlk öğretmen hesabı zaten oluşturulmuş. Kurulum parolası bu aşamada değiştirilemez.');
     const stored = findUser.get(username);
     if (stored?.role === 'student') throw new Error('Bu kullanıcı adı öğrenciye ait.');

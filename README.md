@@ -7,10 +7,10 @@ Tuş Atölyesi, okulun yerel ağında çalışan Türkçe F ve Q on parmak klavy
 1. Ana bilgisayarda `Tus-Atolyesi-Kurulum.exe` dosyasını çalıştırın ve Windows yönetici onayını verin.
 2. **Yerel ağ ayarları** ekranında TCP portunu seçin. Varsayılan `3000`. `1–65535` aralığında, başka bir uygulamanın kullanmadığı bir port seçilebilir.
 3. Kurulum, sunucuyu başlatır ve seçilen port için Windows Güvenlik Duvarı'na otomatik gelen TCP kuralı ekler. Kural tüm ağ profillerinde geçerlidir ve paketle gelen sunucu programına aynı alt ağdan gelen bağlantılarla sınırlıdır.
-4. Kurulum sonunda **İlk öğretmen için kurulum parolası belirle** seçeneğini işaretleyin veya Başlat menüsünde **Tuş Atölyesi → Kurulum parolası belirle** kısayolunu kullanın. Tarayıcıda **Oturum aç → İlk öğretmeni kur** bağlantısından bu parolayla ilk öğretmen hesabını oluşturun.
+4. Kurulum ekranında kurulum parolasını girin ve doğrulayın. Tarayıcıda **Oturum aç → İlk öğretmeni kur** bağlantısından bu parolayla ilk öğretmen hesabını oluşturun. Mevcut kurulum güncellendiğinde kayıtlı kurulum parolası korunur.
 5. Ana bilgisayarda `http://localhost:<port>` adresini açın. Ağdaki bilgisayarlar için ana bilgisayarın IPv4 adresini ve seçilen portu kullanın. Örneğin `http://192.168.1.100:3000`. IPv4 adresini `ipconfig` ile görebilirsiniz. Adresin değişmemesi için okulun ağ yöneticisi DHCP rezervasyonu yapabilir.
 
-Sunucu, Windows Görev Zamanlayıcı'daki `TusAtolyesi` göreviyle bilgisayar açıldığında, kullanıcı oturumu açılmadan başlar. Port değiştirmek için kurulum paketini yeniden çalıştırıp yeni port seçin. Kurulum yeni dinleyiciyi denetler ve önceki güvenlik duvarı kuralını başarılı geçişten sonra kaldırır. Sessiz kurulumda `/VERYSILENT /PORT=3180` kullanılabilir.
+Sunucu, Windows Görev Zamanlayıcı'daki `TusAtolyesi` göreviyle bilgisayar açıldığında, kullanıcı oturumu açılmadan başlar. Port değiştirmek için kurulum paketini yeniden çalıştırıp yeni port seçin. Kurulum yeni dinleyiciyi denetler ve önceki güvenlik duvarı kuralını başarılı geçişten sonra kaldırır. Parola girişi nedeniyle kurulum etkileşimli çalıştırılır.
 
 Veritabanı `%ProgramData%\TusAtolyesi\data\atolye.sqlite` konumundadır. Kaldırma, başlangıç görevini ve uygulamanın güvenlik duvarı kurallarını kaldırır. Öğrenci kayıtları veri klasöründe kalır. Dosya tabanlı yedek için görevi durdurun, veri klasörünü bütün olarak kopyalayın ve görevi yeniden başlatın. Kurulum tanılama kaydı `%ProgramData%\TusAtolyesi\setup.log` dosyasındadır.
 

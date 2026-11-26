@@ -37,16 +37,14 @@ Source: "..\dist\data\*.afm"; DestDir: "{app}\releases\{code:ReleaseName}\data";
 Source: "..\dist\data\*.icc"; DestDir: "{app}\releases\{code:ReleaseName}\data"; Flags: ignoreversion
 Source: "..\dist\public\*"; DestDir: "{app}\releases\{code:ReleaseName}\public"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "lan.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "admin.ps1"; DestDir: "{app}\releases\{code:ReleaseName}"; Flags: ignoreversion
+Source: "setup-password.ps1"; DestDir: "{app}\releases\{code:ReleaseName}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Tuş Atölyesi"; Filename: "{code:LocalUrl}"
-Name: "{group}\Kurulum parolası belirle"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\releases\{code:ReleaseName}\admin.ps1"""
 Name: "{group}\Kurulum rehberi"; Filename: "{app}\README.md"
 
 [Run]
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\releases\{code:ReleaseName}\admin.ps1"""; Description: "İlk öğretmen için kurulum parolası belirle"; Flags: postinstall skipifsilent unchecked runascurrentuser
 Filename: "{code:LocalUrl}"; Description: "Tuş Atölyesi'ni tarayıcıda aç"; Flags: postinstall skipifsilent shellexec runasoriginaluser
 
 [UninstallRun]
@@ -55,6 +53,7 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile
 [Code]
 var
   PortPage: TInputQueryWizardPage;
+  PasswordPage: TInputQueryWizardPage;
   SelectedPort: Integer;
   CurrentRelease: String;
 
@@ -98,6 +97,16 @@ begin
     'Seçtiğiniz port için Windows Güvenlik Duvarı izni otomatik oluşturulur. İzin aynı alt ağdaki cihazların Tuş Atölyesi sunucusuna bağlanmasını sağlar.');
   PortPage.Add('TCP portu (1–65535)', False);
   PortPage.Values[0] := Value;
+  PasswordPage := CreateInputQueryPage(PortPage.ID, 'Kurulum parolası', 'İlk öğretmen için parola belirleyin',
+    'İlk öğretmen hesabını oluştururken ve veritabanını sıfırlarken bu parolayı kullanacaksınız. Mevcut kurulumlarda kayıtlı parola korunur.');
+  PasswordPage.Add('Kurulum parolası (8–128 karakter)', True);
+  PasswordPage.Add('Parola tekrar', True);
+end;
+
+function ValidPassword(): Boolean;
+begin
+  Result := (Length(PasswordPage.Values[0]) >= 8) and (Length(PasswordPage.Values[0]) <= 128) and
+    (PasswordPage.Values[0] = PasswordPage.Values[1]);
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -110,6 +119,11 @@ begin
     if not Result then
       MsgBox('1 ile 65535 arasında boş bir TCP portu girin.', mbError, MB_OK);
   end;
+  if CurPageID = PasswordPage.ID then
+  begin
+    Result := ValidPassword();
+    if not Result then MsgBox('Parolalar aynı ve 8–128 karakter uzunluğunda olmalıdır.', mbError, MB_OK);
+  end;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -117,15 +131,34 @@ begin
   SelectedPort := ParsePort(Trim(PortPage.Values[0]));
   Result := '';
   if SelectedPort = 0 then Result := 'TCP portu 1 ile 65535 arasında olmalıdır.';
+  if not ValidPassword() then Result := 'Kurulum parolası ve tekrarı zorunludur. Sessiz kurulum desteklenmez.';
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Code: Integer;
   Params: String;
+  PasswordFile: String;
+  PasswordLines: TArrayOfString;
 begin
   if CurStep = ssPostInstall then
   begin
+    PasswordFile := ExpandConstant('{tmp}\setup-secret.txt');
+    SetArrayLength(PasswordLines, 1);
+    PasswordLines[0] := PasswordPage.Values[0];
+    if not SaveStringsToUTF8File(PasswordFile, PasswordLines, False) then
+      RaiseException('Kurulum parolası hazırlanamadı.');
+    try
+      Params := '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\releases\{code:ReleaseName}\setup-password.ps1') +
+        '" -PasswordFile "' + PasswordFile + '"';
+      if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Params, '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
+        RaiseException('Kurulum parolası kaydedilemedi.');
+    finally
+      DeleteFile(PasswordFile);
+      PasswordLines[0] := '';
+      PasswordPage.Values[0] := '';
+      PasswordPage.Values[1] := '';
+    end;
     Params := '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\lan.ps1') +
       '" -Port ' + IntToStr(SelectedPort) + ' -Release "' + ExpandConstant('{app}\releases\{code:ReleaseName}') + '"';
     if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Params, '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
