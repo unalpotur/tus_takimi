@@ -341,15 +341,17 @@ function App() {
     if (!allowedExit()) return;
     try {
       await api('/auth/logout', {}, 'POST');
-      setUser(null); setActivity(null); setPage('atolye'); setMenu(false);
-      history.replaceState(null, '', '#atolye');
+      setUser(null); setActivity(null); setPage('giris'); setMenu(false);
+      history.replaceState(null, '', '#giris');
     } catch (error) { setAccountError(error.message); }
   }
-  const links = bootstrap ? [['kurulum', 'İlk öğretmen', 'user'], ['veritabani', 'Veritabanını sıfırla', 'settings']] : teacher ? teacherLinks : studentLinks;
+  const links = !user ? [['giris', 'Oturum aç', 'login'], ['kayit', 'Öğrenci başvurusu', 'user']] :
+    bootstrap ? [['kurulum', 'İlk öğretmen', 'user'], ['veritabani', 'Veritabanını sıfırla', 'settings']] : teacher ? teacherLinks : studentLinks;
   const teacherPage = teacherLinks.some(link => link[0] === page);
-  const view = page === 'veritabani' ? page : bootstrap ? 'kurulum' : teacher ? teacherPage ? page : 'sinif' :
+  const publicPages = ['giris', 'kayit', 'kurulum', 'veritabani'];
+  const view = !user && !publicPages.includes(page) ? 'giris' : page === 'veritabani' ? page : bootstrap ? 'kurulum' : teacher ? teacherPage ? page : 'sinif' :
     teacherPage || (student && page === 'kurulum') ? 'atolye' : page;
-  const home = bootstrap ? 'kurulum' : teacher ? 'sinif' : 'atolye';
+  const home = !user ? 'giris' : bootstrap ? 'kurulum' : teacher ? 'sinif' : 'atolye';
   const navLink = ([id, label, icon]) => <a key={id} href={'#' + id} className={'nav-link' + (id === view ? ' selected' : '')}
     aria-current={id === view ? 'page' : undefined} onClick={event => { event.preventDefault(); go(id); }}><Icon name={icon}/>{label}</a>;
 
@@ -390,22 +392,21 @@ function App() {
         <Icon name="board"/> Menü</button>
       <div className={'side-content' + (menu ? ' expanded' : '')} id="side-content">
         <nav aria-label="Ana menü"><span className="nav-caption">{bootstrap ? 'Kurulum' : teacher ? 'Öğretmen paneli' : 'Çalışma alanı'}</span>{links.map(navLink)}
-          {!teacher && !bootstrap && <><span className="nav-caption help">Yardım</span>{navLink(['rehber', 'Parmak rehberi', 'hand'])}</>}
+          {student && <><span className="nav-caption help">Yardım</span>{navLink(['rehber', 'Parmak rehberi', 'hand'])}</>}
         </nav>
         <div className="sidebar-end">
           {student && <nav aria-label="Hesap">{navLink(['profil', 'Sınıf bilgilerim', 'settings'])}</nav>}
-          <div className="account-row">
-            <span className="account-icon">{user ? user.full_name.slice(0, 1).toLocaleUpperCase('tr') : <Icon name="user" size={17}/>}</span>
-            <div><strong>{user?.full_name ?? 'Misafir'}</strong><small>{bootstrap ? 'İlk hesap kurulumu' : teacher ? 'Öğretmen' : student ? user.class_name : 'Öğrenci hesabı'}</small></div>
-          </div>
-          {user ? <button className="nav-link" onClick={logout}><Icon name="logout"/> Oturumu kapat</button> : navLink(['giris', 'Oturum aç', 'login'])}
+          {user && <><div className="account-row">
+            <span className="account-icon">{user.full_name.slice(0, 1).toLocaleUpperCase('tr')}</span>
+            <div><strong>{user.full_name}</strong><small>{bootstrap ? 'İlk hesap kurulumu' : teacher ? 'Öğretmen' : user.class_name}</small></div>
+          </div><button className="nav-link" onClick={logout}><Icon name="logout"/> Oturumu kapat</button></>}
         </div>
       </div>
     </aside>
     <main id="main" className="main" tabIndex={-1}>
       <header className="masthead between">
         <span className="context flex items-center gap-2"><Icon name={teacher ? 'chart' : 'screen'} size={17}/>{bootstrap ? 'İlk hesap kurulumu' : teacher ? 'Öğretmen çalışma alanı' : 'Klavye çalışma alanı'}</span>
-        {!teacher && !bootstrap && !['giris', 'kayit', 'kurulum', 'veritabani'].includes(view) && <LayoutSwitch layout={layout} onChange={changeLayout} disabled={active}/>}
+        {student && !['giris', 'kayit', 'kurulum', 'veritabani'].includes(view) && <LayoutSwitch layout={layout} onChange={changeLayout} disabled={active}/>}
       </header>
       <div className="canvas" data-ui>
         {accountError && <div className="notice error between" role="alert">{accountError}
