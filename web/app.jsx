@@ -77,6 +77,7 @@ function Account({ register, go, onUser, next }) {
         onClick={event => { event.preventDefault(); go('kurulum'); }}>İlk öğretmeni kur</a></p>}
       {!register && maintenance.data?.local && <p className="muted small"><a href="#veritabani"
         onClick={event => { event.preventDefault(); go('veritabani'); }}>Veritabanını sıfırla</a></p>}
+      {!register && <p className="muted small">Parolanızı unuttuysanız bir öğretmenden sıfırlamasını isteyin.</p>}
     </form>
   </div>;
 }

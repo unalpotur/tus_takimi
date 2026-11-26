@@ -347,6 +347,28 @@ function serve(port, host) {
       FROM users WHERE role='student' AND approval_status='pending' ORDER BY created_at, username`).all();
     res.json({ teachers, pending });
   });
+  app.post('/api/teacher/reset-password', requireUser, admin, async (req, res) => {
+    const username = usernameValue(req.body?.username);
+    const { current_password: currentPassword, new_password: newPassword } = req.body ?? {};
+    if (!validUsername(username) || !validPassword(currentPassword) || !validPassword(newPassword)) {
+      fail(400, 'Kullanıcı adı ve en az 8 karakterli parolalar gereklidir.');
+    }
+    throttle('reset-password', req.user.id, 12, 5 * 60 * 1000);
+    const actor = req.user;
+    const candidate = await passwordHash(currentPassword, actor.password_hash.split(':')[0]);
+    if (!timingSafeEqual(Buffer.from(candidate), Buffer.from(actor.password_hash))) fail(403, 'Öğretmen parolası hatalı.');
+    const encoded = await passwordHash(newPassword);
+    transaction(db, () => {
+      if (!activeAuth.get(req.session.jti, Date.now()) || getUser.get(actor.id)?.password_hash !== actor.password_hash) {
+        fail(401, 'Devam etmek için giriş yapın.');
+      }
+      const target = findUser.get(username);
+      if (!target || accountRole(target) === 'bootstrap') fail(404, 'Öğrenci veya öğretmen hesabı bulunamadı.');
+      setPassword.run(encoded, target.id);
+      removeUserSessions.run(target.id);
+    });
+    res.json({ ok: true, own_account: username === actor.username });
+  });
   app.post('/api/teacher/accounts', requireUser, async (req, res) => {
     const role = accountRole(req.user);
     if (role !== 'teacher' && role !== 'bootstrap') fail(403, 'Bu işlem için yetkiniz yok.');

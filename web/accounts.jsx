@@ -198,5 +198,38 @@ export function TeacherAccounts() {
         </li>)}</ul>
       </section>}
     </div>
+    <PasswordReset/>
   </>;
+}
+
+function PasswordReset() {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+  async function submit(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = Object.fromEntries(new FormData(form));
+    if (values.new_password !== values.confirm_password) {
+      setMessage({ error: true, text: 'Yeni parolalar eşleşmiyor.' });
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await api('/teacher/reset-password', values, 'POST');
+      form.reset();
+      if (result.own_account) { window.location.assign('/#giris'); window.location.reload(); return; }
+      setMessage({ text: 'Parola güncellendi. Hesabın açık oturumları kapatıldı.' });
+    } catch (error) { setMessage({ error: true, text: error.message }); }
+    finally { setBusy(false); }
+  }
+  return <form className="panel form account-area" onSubmit={submit}>
+    <div><h2>Parola sıfırla</h2><p className="muted small">Öğrenci veya öğretmen hesabına yeni bir parola belirleyin.</p></div>
+    <label>Hesabın kullanıcı adı<input name="username" autoComplete="off" minLength={3} maxLength={40} required/></label>
+    <label>Yeni parola<input name="new_password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required/></label>
+    <label>Yeni parola tekrar<input name="confirm_password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required/></label>
+    <label>Kendi öğretmen parolanız<input name="current_password" type="password" autoComplete="current-password" minLength={8} maxLength={128} required/></label>
+    {message && <p className={'notice ' + (message.error ? 'error' : 'success')} role={message.error ? 'alert' : 'status'}>{message.text}</p>}
+    <button className="button primary" disabled={busy}>{busy ? 'Kaydediliyor…' : 'Parolayı sıfırla'}</button>
+  </form>;
 }
