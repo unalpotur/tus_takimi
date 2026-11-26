@@ -4,11 +4,6 @@ export const withoutCircumflex = char => plainLetters[char] ?? char;
 export const matchesCharacter = (expected, pressed) => expected === pressed || withoutCircumflex(expected) === pressed;
 export const examDurations = [60, 300, 600, 900, 1200];
 
-export function currentYear() {
-  const today = new Date();
-  const year = today.getFullYear() - Number(today.getMonth() < 8);
-  return year + '-' + (year + 1);
-}
 export const levels = [
   { title: 'Temel sıra', detail: 'Ana sırada iki ve üç harfli diziler', wpm: 0, accuracy: 0 },
   { title: 'Üst ve alt sıra', detail: 'Tüm harfler ve kısa kelimeler', wpm: 16, accuracy: 85 },

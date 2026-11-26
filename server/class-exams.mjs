@@ -3,14 +3,10 @@ import { examDurations, examScore, layouts, makeClassExamText } from '../shared/
 import { transaction } from './database.mjs';
 import { examReport, sendReport } from './reports.mjs';
 
-export function registerClassExamRoutes(app, { db, requireUser, admin, student, fail, enrollment, attemptMaxAge, addAttempt, getAttempt }) {
+export function registerClassExamRoutes(app, { db, requireUser, admin, student, fail, requireEnrollment, attemptMaxAge, addAttempt, getAttempt }) {
   const groups = db.prepare(`
-    WITH choices AS (
-      SELECT academic_year,class_name FROM users WHERE role='student'
-      UNION SELECT academic_year,class_name FROM class_exams
-    )
     SELECT c.academic_year AS year,c.class_name AS class,COUNT(u.id) AS count
-    FROM choices c LEFT JOIN users u ON u.academic_year=c.academic_year AND u.class_name=c.class_name
+    FROM school_classes c LEFT JOIN users u ON u.academic_year=c.academic_year AND u.class_name=c.class_name
       AND u.role='student' AND u.approval_status='approved'
     GROUP BY c.academic_year,c.class_name ORDER BY year DESC,class
   `);
@@ -77,7 +73,7 @@ export function registerClassExamRoutes(app, { db, requireUser, admin, student, 
   app.post('/api/admin/class-exams', requireUser, admin, (req, res) => {
     const body = req.body ?? {};
     const { level, duration } = body;
-    const [year, className] = enrollment(body);
+    const [year, className] = requireEnrollment(body);
     if (!Number.isInteger(level) || level < 1 || level > 5) fail(400, 'Sınav seviyesi 1 ile 5 arasında olmalıdır.');
     if (!examDurations.includes(duration)) fail(400, 'Geçerli bir sınav süresi seçin.');
     const id = randomUUID();

@@ -44,6 +44,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-windows.ps1
 
 - İlk öğretmen oluşturulduğunda kurulum oturumları kapanır ve kurulum parolasıyla oturum açma sona erer. Aynı parola ana bilgisayardaki veritabanı sıfırlama ekranında kullanılabilir. Eski bir sürümden geçişte mevcut yönetici hesabıyla bir kez oturum açarak ilk öğretmeni oluşturabilirsiniz.
 - Öğretmenler kendi kullanıcı adları ve parolalarıyla giriş yapar. **Hesap yönetimi** ekranından yeni öğretmen hesabı oluşturabilirler.
+- Öğretmenler **Yıl ve sınıflar** ekranından önce öğrenim yılını, ardından o yılın sınıflarını oluşturur. Öğrenciler kayıt ve sınıf bilgileri ekranlarında bu listeden seçim yapar. Sınıf sınavları da bu sınıflara yayımlanır.
 - Öğrenciler kayıt formundan başvuru gönderir. Öğretmen **Hesap yönetimi → Onay bekleyen öğrenciler** listesinden başvuruyu onayladıktan sonra öğrenci kendi parolasıyla giriş yapar.
 - Öğretmen, başvuru listesinde sunucunun gördüğü IP adresini, başvuru tarihini ve saatini, ayrıca ağın DNS kayıtları sağlıyorsa cihaz adını görür.
 - Güncelleme sırasında mevcut öğrenci hesapları ve çalışma geçmişleri korunur. Onay akışı yeni başvurulara uygulanır.

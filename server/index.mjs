@@ -89,12 +89,17 @@ class ApiError extends Error {
 }
 const fail = (status, message) => { throw new ApiError(status, message); };
 
-function enrollment(body) {
-  const academicYear = clean(body.academic_year, 9);
-  const className = clean(body.class_name, 40).toLocaleUpperCase('tr');
+function validateAcademicYear(value) {
+  const academicYear = clean(value, 9);
   if (!/^20\d\d-20\d\d$/.test(academicYear) || Number(academicYear.slice(5)) !== Number(academicYear.slice(0, 4)) + 1) {
     fail(400, 'Öğrenim yılı ardışık iki yıl olmalıdır. Örnek 2026-2027.');
   }
+  return academicYear;
+}
+
+function enrollment(body) {
+  const academicYear = validateAcademicYear(body.academic_year);
+  const className = clean(body.class_name, 40).toLocaleUpperCase('tr');
   if (!/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,39}$/u.test(className)) fail(400, 'Geçerli bir sınıf adı girin.');
   return [academicYear, className];
 }
@@ -193,6 +198,15 @@ function serve(port, host) {
   }
   const student = requireRole('student');
   const admin = requireRole('teacher');
+  const findYear = query('SELECT 1 FROM academic_years WHERE year=?');
+  const findClass = query('SELECT 1 FROM school_classes WHERE academic_year=? AND class_name=?');
+  const listEnrollment = query(`SELECT y.year,c.class_name FROM academic_years y
+    LEFT JOIN school_classes c ON c.academic_year=y.year ORDER BY y.year DESC,c.class_name`);
+  function requireEnrollment(body) {
+    const selection = enrollment(body);
+    if (!findClass.get(...selection)) fail(400, 'Öğretmenin tanımladığı bir öğrenim yılı ve sınıf seçin.');
+    return selection;
+  }
 
   function localMaintenance(req) {
     const loopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
@@ -227,6 +241,27 @@ function serve(port, host) {
   });
   app.use('/api', express.json({ limit: '1536kb' }));
   app.get('/api/health', (_req, res) => res.json({ ok: true, app: 'tus-atolyesi', port }));
+  app.get('/api/enrollment', (_req, res) => {
+    const years = new Map();
+    for (const row of listEnrollment.all()) {
+      if (!years.has(row.year)) years.set(row.year, { year: row.year, classes: [] });
+      if (row.class_name) years.get(row.year).classes.push(row.class_name);
+    }
+    res.json({ years: [...years.values()] });
+  });
+  app.post('/api/teacher/academic-years', requireUser, admin, (req, res) => {
+    const year = validateAcademicYear(req.body?.academic_year);
+    const result = query('INSERT OR IGNORE INTO academic_years(year) VALUES(?)').run(year);
+    if (!result.changes) fail(409, 'Bu öğrenim yılı zaten tanımlı.');
+    res.status(201).json({ year });
+  });
+  app.post('/api/teacher/classes', requireUser, admin, (req, res) => {
+    const [year, className] = enrollment(req.body ?? {});
+    if (!findYear.get(year)) fail(400, 'Önce öğrenim yılını oluşturun.');
+    const result = query('INSERT OR IGNORE INTO school_classes(academic_year,class_name) VALUES(?,?)').run(year, className);
+    if (!result.changes) fail(409, 'Bu sınıf seçilen yılda zaten tanımlı.');
+    res.status(201).json({ year, class_name: className });
+  });
 
   app.post('/api/auth/register', async (req, res) => {
     const receivedAt = now();
@@ -240,7 +275,7 @@ function serve(port, host) {
     if (!validUsername(username) || !validName(fullName) || !validPassword(body.password)) {
       fail(400, 'Kullanıcı adı, ad soyad ve en az 8 karakterli bir parola girin.');
     }
-    const [year, className] = enrollment(body);
+    const [year, className] = requireEnrollment(body);
     const layout = getLayout(body.preferred_keyboard, { preferred_keyboard: 'F' });
     if (findUser.get(username)) fail(409, 'Bu kullanıcı adı zaten kullanılıyor.');
     const encoded = await passwordHash(body.password);
@@ -336,6 +371,7 @@ function serve(port, host) {
   app.post('/api/teacher/accounts/:id/approve', requireUser, admin, (req, res) => {
     const target = getUser.get(req.params.id);
     if (target?.role !== 'student') fail(404, 'Öğrenci hesabı bulunamadı.');
+    requireEnrollment(target);
     query("UPDATE users SET approval_status='approved' WHERE id=? AND approval_status='pending'").run(target.id);
     res.json({ status: 'approved' });
   });
@@ -350,7 +386,7 @@ function serve(port, host) {
   });
   app.patch('/api/profile', requireUser, student, (req, res) => {
     const body = req.body ?? {};
-    const [year, className] = enrollment({ ...req.user, ...body });
+    const [year, className] = requireEnrollment({ ...req.user, ...body });
     const layout = getLayout(body.preferred_keyboard, req.user);
     query('UPDATE users SET academic_year=?,class_name=?,preferred_keyboard=? WHERE id=?').run(year, className, layout, req.user.id);
     res.json({ user: userView(getUser.get(req.user.id)) });
@@ -393,7 +429,7 @@ function serve(port, host) {
     addAttempt.run(id, req.user.id, layout, req.user.academic_year, req.user.class_name, JSON.stringify(activity), start);
     res.status(201).json({ id, activity });
   });
-  registerClassExamRoutes(app, { db, requireUser, admin, student, fail, enrollment, attemptMaxAge, addAttempt, getAttempt });
+  registerClassExamRoutes(app, { db, requireUser, admin, student, fail, requireEnrollment, attemptMaxAge, addAttempt, getAttempt });
   app.post('/api/results/submit', requireUser, student, (req, res) => {
     const { id, events, elapsed } = req.body ?? {};
     if (typeof id !== 'string' || !/^[a-f0-9-]{36}$/.test(id)) fail(400, 'Geçersiz çalışma kimliği.');
@@ -432,8 +468,7 @@ function serve(port, host) {
 
   function readOverview(options) {
     const groups = query(`
-      SELECT academic_year AS year,class_name AS class FROM users WHERE role='student' AND approval_status='approved'
-      UNION SELECT academic_year,class_name FROM sessions_and_tests ORDER BY year DESC,class
+      SELECT academic_year AS year,class_name AS class FROM school_classes ORDER BY year DESC,class
     `).all();
     const year = clean(options.year, 9) || groups[0]?.year || '';
     const choices = groups.filter(group => group.year === year);

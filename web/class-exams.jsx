@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { currentYear, examDurations, levels } from '../shared/training.mjs';
+import { examDurations, levels } from '../shared/training.mjs';
 import { api, charLabel, dateFormat, format, Icon, Metrics, ReportButtons, Status, useApi } from './ui.jsx';
 
 const labels = { pending: 'Başlamadı', started: 'Başladı', awaiting_submission: 'Teslim bekleniyor', completed: 'Tamamlandı', expired: 'Kayıt süresi doldu' };
@@ -102,10 +102,10 @@ function ExamResults({ id, onBack, onChanged }) {
   </>;
 }
 
-export function AdminExams() {
+export function AdminExams({ onManage }) {
   const request = useApi('/admin/class-exams', 5000);
   const groups = request.data?.groups ?? [];
-  const years = [...new Set([...groups.map(group => group.year), currentYear()])].sort().reverse();
+  const years = [...new Set(groups.map(group => group.year))];
   const [selection, setSelection] = useState({});
   const [selected, setSelected] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -113,10 +113,8 @@ export function AdminExams() {
   const [published, setPublished] = useState(false);
   const year = years.includes(selection.year) ? selection.year : years[0] ?? '';
   const classes = groups.filter(group => group.year === year);
-  const classOption = selection.class === 'new' || !classes.length ? 'new' :
-    (classes.find(group => group.class === selection.class) ?? classes[0]).class;
-  const className = classOption === 'new' ? selection.className?.trim() ?? '' : classOption;
-  const memberCount = classes.find(group => group.class === className.toLocaleUpperCase('tr'))?.count ?? 0;
+  const group = classes.find(group => group.class === selection.class) ?? classes[0];
+  const className = group?.class ?? '';
   async function publish(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -145,23 +143,25 @@ export function AdminExams() {
         <div className="panel-head"><h2>Yeni sınıf sınavı</h2><p className="muted small">Yeni bir sınav yayımlayın. Sınıftaki onaylı öğrenciler aynı metin ve süreyle katılır.</p></div>
         <form className="exam-form" onSubmit={publish}>
           <div className="exam-form-grid">
-            <label className="filter">Öğrenim yılı<select value={year} aria-label="Öğrenim yılı"
+            <label className="filter">Öğrenim yılı<select value={year} aria-label="Öğrenim yılı" disabled={!years.length}
               onChange={event => setSelection({ year: event.target.value })}>
+              {!years.length && <option value="">Öğrenim yılı yok</option>}
               {years.map(item => <option key={item}>{item}</option>)}</select></label>
-            <label className="filter">Sınıf<select value={classOption} aria-label="Sınıf"
+            <label className="filter">Sınıf<select value={className} aria-label="Sınıf" disabled={!classes.length}
               onChange={event => setSelection({ year, class: event.target.value })}>
-              {classes.map(item => <option key={item.class}>{item.class}</option>)}<option value="new">Sınıf adı gir</option></select></label>
+              {!classes.length && <option value="">Sınıf yok</option>}
+              {classes.map(item => <option key={item.class}>{item.class}</option>)}</select></label>
             <label className="filter">Seviye<select name="level" aria-label="Seviye" defaultValue="1">
               {levels.map((level, index) => <option value={index + 1} key={level.title}>{index + 1} · {level.title}</option>)}</select></label>
             <label className="filter">Süre<select name="duration" aria-label="Süre" defaultValue="60">
               {examDurations.map(seconds => <option value={seconds} key={seconds}>{seconds / 60} dakika</option>)}</select></label>
-            {classOption === 'new' && <label className="filter">Sınıf adı<input value={selection.className ?? ''} placeholder="Örnek 10-A"
-              maxLength={40} required onChange={event => setSelection({ year, class: 'new', className: event.target.value })}/></label>}
           </div>
           {error && <p className="notice error" role="alert">{error}</p>}
           <div className="between exam-form-footer">
-            <p className="muted small">{memberCount ? memberCount + ' onaylı öğrenci' : 'Öğrenciler onaylandıkça yayındaki sınava katılabilir.'}</p>
-            <button className="button primary" disabled={!className || busy}>{busy ? 'Yayımlanıyor…' : 'Sınavı yayımla'}</button>
+            <p className="muted small">{group ? group.count ? group.count + ' onaylı öğrenci' :
+              'Öğrenciler onaylandıkça yayındaki sınava katılabilir.' : 'Sınav yayımlamak için önce bir sınıf oluşturun.'}</p>
+            {group ? <button className="button primary" disabled={busy}>{busy ? 'Yayımlanıyor…' : 'Sınavı yayımla'}</button> :
+              <button type="button" className="button" onClick={onManage}>Yıl ve sınıfları aç</button>}
           </div>
         </form>
       </section>

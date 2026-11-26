@@ -26,6 +26,11 @@ export function openDatabase(directory) {
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires_at INTEGER NOT NULL
     ) STRICT;
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
+    CREATE TABLE IF NOT EXISTS academic_years (year TEXT PRIMARY KEY) STRICT;
+    CREATE TABLE IF NOT EXISTS school_classes (
+      academic_year TEXT NOT NULL REFERENCES academic_years(year), class_name TEXT NOT NULL,
+      PRIMARY KEY(academic_year,class_name)
+    ) STRICT;
     CREATE TABLE IF NOT EXISTS attempts (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id),
       keyboard_layout TEXT NOT NULL, academic_year TEXT NOT NULL, class_name TEXT NOT NULL,
@@ -90,6 +95,21 @@ export function openDatabase(directory) {
       ALTER TABLE users ADD COLUMN registration_hostname TEXT;
     `);
   });
+  const catalogMigrated = db.prepare("SELECT 1 FROM settings WHERE key='enrollment_catalog_migrated'");
+  if (!catalogMigrated.get()) transaction(db, () => {
+    if (catalogMigrated.get()) return;
+    db.exec(`
+      INSERT OR IGNORE INTO academic_years(year)
+        SELECT academic_year FROM users WHERE role='student' AND approval_status='approved'
+        UNION SELECT academic_year FROM class_exams
+        UNION SELECT academic_year FROM sessions_and_tests;
+      INSERT OR IGNORE INTO school_classes(academic_year,class_name)
+        SELECT academic_year,class_name FROM users WHERE role='student' AND approval_status='approved'
+        UNION SELECT academic_year,class_name FROM class_exams
+        UNION SELECT academic_year,class_name FROM sessions_and_tests;
+      INSERT INTO settings(key,value) VALUES('enrollment_catalog_migrated','1');
+    `);
+  });
   return db;
 }
 
@@ -121,6 +141,8 @@ export function resetDatabase(db, directory, setupUserId, setupUsername, secret)
       DELETE FROM character_error_stats;
       DELETE FROM class_exam_students;
       DELETE FROM class_exams;
+      DELETE FROM school_classes;
+      DELETE FROM academic_years;
       DELETE FROM settings;
     `);
     db.prepare('DELETE FROM users WHERE id<>?').run(setupUserId);

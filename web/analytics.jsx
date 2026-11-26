@@ -122,9 +122,6 @@ export function Admin() {
   if (student) return <Student selection={student} onBack={() => setStudent(null)} onDeleted={() => {
     setRemoved(student.name);
     setStudent(null);
-    if (data?.rows.every(row => row.id === student.id)) {
-      setSelection(classes.some(className => className !== student.class) ? { year: student.year } : {});
-    }
     request.retry();
   }}/>;
   return <>

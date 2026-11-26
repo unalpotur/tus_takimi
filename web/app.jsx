@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { currentYear, examDurations, levels, lessonsFor, preview, skillGames } from '../shared/training.mjs';
+import { examDurations, levels, lessonsFor, preview, skillGames } from '../shared/training.mjs';
 import { Admin, Progress } from './analytics.jsx';
 import { DatabaseReset, FirstTeacher, SetupAccess, TeacherAccounts } from './accounts.jsx';
+import { SchoolCatalog } from './school-catalog.jsx';
 import { AdminExams, canEnterClassExam, StudentExams } from './class-exams.jsx';
 import { Workspace } from './activities.jsx';
 import { Hands, Keyboard } from './keyboard.jsx';
@@ -12,7 +13,9 @@ const studentLinks = [
   ['atolye', 'Atölye', 'board'], ['dersler', 'Alıştırmalar', 'book'], ['sinav', 'Seviye sınavı', 'timer'],
   ['sinif-sinavlari', 'Sınıf sınavlarım', 'flag'], ['oyunlar', 'Mini oyunlar', 'game'], ['gelisim', 'Gelişimim', 'chart']
 ];
-const validRoutes = new Set([...studentLinks.map(item => item[0]), 'rehber', 'profil', 'giris', 'kayit', 'sinif', 'sinav-yonetimi', 'kurulum', 'hesap-yonetimi', 'veritabani']);
+const validRoutes = new Set([...studentLinks.map(item => item[0]), 'rehber', 'profil', 'giris', 'kayit', 'sinif', 'sinav-yonetimi', 'kurulum', 'hesap-yonetimi', 'veritabani', 'yil-ve-siniflar']);
+const teacherLinks = [['sinif', 'Sınıf takibi', 'chart'], ['sinav-yonetimi', 'Sınıf sınavları', 'flag'],
+  ['hesap-yonetimi', 'Hesap yönetimi', 'user'], ['yil-ve-siniflar', 'Yıl ve sınıflar', 'settings']];
 const route = () => validRoutes.has(location.hash.slice(1)) ? location.hash.slice(1) : 'atolye';
 const startExam = { id: 'placement', type: 'placement_test', title: 'Seviye sınavı', duration: 60 };
 
@@ -28,6 +31,7 @@ function Account({ register, go, onUser, next }) {
   const [submitted, setSubmitted] = useState(false);
   const setup = useApi(register ? null : '/auth/setup');
   const maintenance = useApi(register ? null : '/auth/database-reset');
+  const enrollment = useEnrollmentSelection(register);
   const errorNode = useRef(null);
   useEffect(() => { if (error) errorNode.current?.focus(); }, [error]);
   async function submit(event) {
@@ -63,9 +67,9 @@ function Account({ register, go, onUser, next }) {
       {register && <p className="field-hint" id="username-hint">3–40 karakter. Harf, rakam, nokta, alt çizgi veya tire kullanabilirsin.</p>}
       <label>Parola<input name="password" type="password" autoComplete={register ? 'new-password' : 'current-password'}
         required minLength={8} maxLength={128} aria-describedby={register ? 'password-hint' : undefined}/></label>
-      {register && <><p className="field-hint" id="password-hint">En az 8 karakter.</p><Enrollment/>
+      {register && <><p className="field-hint" id="password-hint">En az 8 karakter.</p><Enrollment {...enrollment}/>
         <label>Klavye düzeni<select name="preferred_keyboard" aria-label="Klavye düzeni"><option value="F">Türkçe F</option><option value="Q">Türkçe Q</option></select></label></>}
-      <button className="button primary" disabled={busy}>{busy ? 'Bekleyin…' : register ? 'Başvuru gönder' : 'Oturum aç'}</button>
+      <button className="button primary" disabled={busy || (register && !enrollment.valid)}>{busy ? 'Bekleyin…' : register ? 'Başvuru gönder' : 'Oturum aç'}</button>
       <p className="muted small">{register ? 'Zaten hesabın var mı?' : 'Öğrenci hesabın yok mu?'}{' '}
         <a href={register ? '#giris' : '#kayit'} onClick={event => { event.preventDefault(); go(register ? 'giris' : 'kayit'); }}>
           {register ? 'Oturum aç' : 'Hesap oluştur'}</a></p>
@@ -77,17 +81,35 @@ function Account({ register, go, onUser, next }) {
   </div>;
 }
 
-function Enrollment({ user }) {
-  return <div className="field-grid">
-    <label>Öğrenim yılı<input name="academic_year" defaultValue={user?.academic_year ?? currentYear()} placeholder="2026-2027"
-      pattern="20[0-9]{2}-20[0-9]{2}" title="Örnek 2026-2027" maxLength={9} required/></label>
-    <label>Sınıf<input name="class_name" defaultValue={user?.class_name} placeholder="Örnek 9-A" required maxLength={40}/></label>
-  </div>;
+function useEnrollmentSelection(enabled, user) {
+  const request = useApi(enabled ? '/enrollment' : null);
+  const [selection, setSelection] = useState({ year: user?.academic_year ?? '', className: user?.class_name ?? '' });
+  const years = request.data?.years ?? [];
+  const classes = years.find(item => item.year === selection.year)?.classes ?? [];
+  return { request, years, classes, selection, setSelection, valid: classes.includes(selection.className) };
+}
+
+function Enrollment({ request, years, classes, selection, setSelection }) {
+  return <>
+    <Status request={request}/>
+    {request.data && !years.some(item => item.classes.length) &&
+      <p className="notice">Henüz tanımlı sınıf yok. Öğretmenin bir sınıf oluşturduğunda seçim yapabilirsin.</p>}
+    <div className="field-grid">
+      <label>Öğrenim yılı<select name="academic_year" aria-label="Öğrenim yılı" value={selection.year} disabled={!years.length} required
+        onChange={event => setSelection({ year: event.target.value, className: '' })}>
+        <option value="">Yıl seç</option>{years.map(item => <option key={item.year}>{item.year}</option>)}</select></label>
+      <label>Sınıf<select name="class_name" aria-label="Sınıf" value={selection.className} disabled={!classes.length} required
+        onChange={event => setSelection({ ...selection, className: event.target.value })}>
+        <option value="">{selection.year && !classes.length ? 'Tanımlı sınıf yok' : 'Sınıf seç'}</option>
+        {classes.map(className => <option key={className}>{className}</option>)}</select></label>
+    </div>
+  </>;
 }
 
 function Profile({ user, setUser }) {
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
+  const enrollment = useEnrollmentSelection(true, user);
   async function submit(event) {
     event.preventDefault();
     const body = Object.fromEntries(new FormData(event.currentTarget));
@@ -102,8 +124,8 @@ function Profile({ user, setUser }) {
   return <div className="account-area">
     <Title title="Sınıf bilgilerim" description={user.full_name}/>
     <form className="panel form" onSubmit={submit}>
-      <Enrollment user={user}/>
-      <button className="button primary" disabled={busy}>{busy ? 'Kaydediliyor…' : 'Değişiklikleri kaydet'}</button>
+      <Enrollment {...enrollment}/>
+      <button className="button primary" disabled={busy || !enrollment.valid}>{busy ? 'Kaydediliyor…' : 'Değişiklikleri kaydet'}</button>
       {message && <p role={message.error ? 'alert' : 'status'} className={'notice ' + (message.error ? 'error' : 'success')}>{message.text}</p>}
     </form>
   </div>;
@@ -323,7 +345,6 @@ function App() {
       history.replaceState(null, '', '#atolye');
     } catch (error) { setAccountError(error.message); }
   }
-  const teacherLinks = [['sinif', 'Sınıf takibi', 'chart'], ['sinav-yonetimi', 'Sınıf sınavları', 'flag'], ['hesap-yonetimi', 'Hesap yönetimi', 'user']];
   const links = bootstrap ? [['kurulum', 'İlk öğretmen', 'user'], ['veritabani', 'Veritabanını sıfırla', 'settings']] : teacher ? teacherLinks : studentLinks;
   const teacherPage = teacherLinks.some(link => link[0] === page);
   const view = page === 'veritabani' ? page : bootstrap ? 'kurulum' : teacher ? teacherPage ? page : 'sinif' :
@@ -337,7 +358,8 @@ function App() {
   else if (view === 'veritabani') content = <DatabaseReset onReset={() => { setUser(null); setActivity(null); setAccountError(null); }}
     onSetup={() => go('kurulum')} onBack={() => go(user ? home : 'giris')}/>;
   else if (bootstrap) content = <FirstTeacher onUser={updated => { setUser(updated); go('sinif'); }}/>;
-  else if (teacher) content = view === 'hesap-yonetimi' ? <TeacherAccounts/> : view === 'sinav-yonetimi' ? <AdminExams/> : <Admin/>;
+  else if (teacher) content = view === 'hesap-yonetimi' ? <TeacherAccounts/> : view === 'yil-ve-siniflar' ? <SchoolCatalog/> :
+    view === 'sinav-yonetimi' ? <AdminExams onManage={() => go('yil-ve-siniflar')}/> : <Admin/>;
   else if (view === 'kurulum') content = <SetupAccess onUser={updated => { setUser(updated); go('kurulum'); }} onBack={() => go('giris')}/>;
   else if (activity && student) content = <>
     <Title title={activity.type === 'class_exam' ? 'Sınıf sınavı' : activity.type === 'placement_test' ? 'Seviye sınavı' : activity.type === 'game' ? 'Mini oyunlar' : 'Alıştırmalar'}/>
