@@ -347,6 +347,11 @@ function serve(port, host) {
       FROM users WHERE role='student' AND approval_status='pending' ORDER BY created_at, username`).all();
     res.json({ teachers, pending });
   });
+  app.get('/api/teacher/students', requireUser, admin, (_req, res) => {
+    const students = query(`SELECT id, username, full_name, academic_year, class_name, approval_status
+      FROM users WHERE role='student'`).all();
+    res.json({ students });
+  });
   app.post('/api/teacher/reset-password', requireUser, admin, async (req, res) => {
     const username = usernameValue(req.body?.username);
     const { current_password: currentPassword, new_password: newPassword } = req.body ?? {};

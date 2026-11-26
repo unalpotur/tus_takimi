@@ -262,6 +262,14 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .approval-source dt { color: var(--muted); }
 .approval-source dd { margin: 0; overflow-wrap: anywhere; }
 .account-approvals .approval-mobile-context { display: none; }
+.student-filters { max-width: none; padding: 20px 20px 0; grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(0, 1fr)); }
+.student-list-summary { min-height: 64px; }
+.student-list .student-mobile-enrollment { display: none; }
+.student-list tbody th, .student-list .report-error { overflow-wrap: anywhere; }
+.student-list .report-error { max-width: 18ch; white-space: normal; }
+@media (max-width: 1050px) {
+  .student-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 1000px) { .exam-form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 690px) {
   .exam-home, .exam-list, .exam-form, .exam-text { padding-inline: 12px; }
@@ -273,6 +281,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
   .account-approvals :is(th,td):first-child { padding-left: 12px; overflow-wrap: anywhere; }
   .approval-source > div { grid-template-columns: 1fr; gap: 1px; }
   .approval-actions { flex-direction: column; align-items: flex-end; }
+  .student-filters { padding-inline: 12px; }
+  .student-filters > :is(:first-child, :last-child) { grid-column: 1 / -1; }
+  .student-list .student-enrollment { display: none; }
+  .student-list .student-mobile-enrollment:not(:empty) { display: block; }
+  .student-list :is(th, td) { padding-inline: 10px; }
 }
 
 @media (min-width: 1151px) {

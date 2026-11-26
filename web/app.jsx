@@ -4,6 +4,7 @@ import { examDurations, levels, lessonsFor, preview, skillGames } from '../share
 import { Admin, Progress } from './analytics.jsx';
 import { DatabaseReset, FirstTeacher, SetupAccess, TeacherAccounts } from './accounts.jsx';
 import { SchoolCatalog } from './school-catalog.jsx';
+import { StudentList } from './students.jsx';
 import { AdminExams, canEnterClassExam, StudentExams } from './class-exams.jsx';
 import { Workspace } from './activities.jsx';
 import { Hands, Keyboard } from './keyboard.jsx';
@@ -13,9 +14,10 @@ const studentLinks = [
   ['atolye', 'Atölye', 'board'], ['dersler', 'Alıştırmalar', 'book'], ['sinav', 'Seviye sınavı', 'timer'],
   ['sinif-sinavlari', 'Sınıf sınavlarım', 'flag'], ['oyunlar', 'Mini oyunlar', 'game'], ['gelisim', 'Gelişimim', 'chart']
 ];
-const validRoutes = new Set([...studentLinks.map(item => item[0]), 'rehber', 'profil', 'giris', 'kayit', 'sinif', 'sinav-yonetimi', 'kurulum', 'hesap-yonetimi', 'veritabani', 'yil-ve-siniflar']);
 const teacherLinks = [['sinif', 'Sınıf takibi', 'chart'], ['sinav-yonetimi', 'Sınıf sınavları', 'flag'],
-  ['hesap-yonetimi', 'Hesap yönetimi', 'user'], ['yil-ve-siniflar', 'Yıl ve sınıflar', 'settings']];
+  ['ogrenciler', 'Öğrenci listesi', 'users'], ['hesap-yonetimi', 'Hesap yönetimi', 'user'], ['yil-ve-siniflar', 'Yıl ve sınıflar', 'settings']];
+const validRoutes = new Set([...studentLinks, ...teacherLinks].map(([id]) => id).concat(
+  'rehber', 'profil', 'giris', 'kayit', 'kurulum', 'veritabani'));
 const route = () => validRoutes.has(location.hash.slice(1)) ? location.hash.slice(1) : 'atolye';
 const startExam = { id: 'placement', type: 'placement_test', title: 'Seviye sınavı', duration: 60 };
 
@@ -362,7 +364,7 @@ function App() {
     onSetup={() => go('kurulum')} onBack={() => go(user ? home : 'giris')}/>;
   else if (bootstrap) content = <FirstTeacher onUser={updated => { setUser(updated); go('sinif'); }}/>;
   else if (teacher) content = view === 'hesap-yonetimi' ? <TeacherAccounts/> : view === 'yil-ve-siniflar' ? <SchoolCatalog/> :
-    view === 'sinav-yonetimi' ? <AdminExams onManage={() => go('yil-ve-siniflar')}/> : <Admin/>;
+    view === 'ogrenciler' ? <StudentList/> : view === 'sinav-yonetimi' ? <AdminExams onManage={() => go('yil-ve-siniflar')}/> : <Admin/>;
   else if (view === 'kurulum') content = <SetupAccess onUser={updated => { setUser(updated); go('kurulum'); }} onBack={() => go('giris')}/>;
   else if (activity && student) content = <>
     <Title title={activity.type === 'class_exam' ? 'Sınıf sınavı' : activity.type === 'placement_test' ? 'Seviye sınavı' : activity.type === 'game' ? 'Mini oyunlar' : 'Alıştırmalar'}/>
